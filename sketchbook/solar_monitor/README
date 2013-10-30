@@ -1,0 +1,12 @@
+This is a sketch built for the Arduino Mega 1280, and a ton of custom hardware.
+In summary, the sketch:
+
+  - On a 4-digit 7-segment display, displays the current battery voltage (V),
+    solar current (A), and solar potential (V). Text labels are displayed to
+    indicate which figure is being presented.
+  - At 1Hz, telemeters the current battery voltage over Serial1.
+  - At 1Hz, telemeters the current solar current over Serial1.
+  - At 1Hz, telemeters the current solar voltage over Serial1.
+
+On the host side, the telemetry may be captured with the collection script
+collect.py.
