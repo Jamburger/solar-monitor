@@ -1,0 +1,22 @@
+These scripts for receiving and processing telemetry from the solar monitor.
+
+collect.py: Receives serialized messages from /dev/ttyUSB0 at 57600 baud. These
+  parameters are hardcoded (ick!), but they can be changed. Battery potential,
+  solar current, and solar potential telemetry are expected, with types 0, 1,
+  and 2, respectively. Each is vectored to its own two-column output file
+  ("battery_potential", "solar_current", and "solar_potential", respectively),
+  where the second column is the measurement and the first column is the current
+  Unix epoch time in seconds.
+
+  Usage: $ ./collect.py
+
+smooth.py: Many readings suffered from low-period oscillation, probably due to
+  capacitance on the ADC pins. This script performs a configurable moving
+  average on a column of data and spits out the results. This has the effect of
+  low-pass filtering the data.
+
+  Usage: To smooth the solar current file over 20 samples and write the output
+         column to solar_current_smoothed_20, do:
+
+         $ cat solar_current | awk '{print $2}' | ./smooth.py 20 > \
+           solar_current_smoothed_20
