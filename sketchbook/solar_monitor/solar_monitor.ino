@@ -19,12 +19,24 @@ static const unsigned int serial_baud = 57600;
 // Dummy pin; not attached to anything.
 static const unsigned int dummy_pin = 22;
 
+// ADC internal 1.1V, 2.56V reference errors.
+const double adc_1v1_offset_error = -.0027303;
+const double adc_1v1_gain_error = 1.04659;
+const double adc_2v56_offset_error = 0.028929;
+const double adc_2v56_gain_error = 1.017857;
+
 // Analog input for battery potential measurement.
 static const unsigned int battery_potential_pin = A1;
 
 // Analog reference for battery potential measurement.
 static const ArduinoAnalogInput::Reference battery_potential_reference =
-    ArduinoAnalogInput::kDefault;
+    ArduinoAnalogInput::k2V56;
+
+// The voltage drop across the battery is split across a voltage divider.
+// The measured potential is across a piece of the divider. The measured
+// value is scaled by this amount to compensate. In our case, we have two
+// 100 kOhm resistors. Empirically, the scalar was found to be 1.9919.
+static const double battery_potential_divider_scalar = 1.9919;
 
 // Analog input for solar current measurement.
 static const unsigned int solar_current_pin = A0;
@@ -50,12 +62,6 @@ static const double solar_current_meter_resistance = 1.0;
 // resistors. Empirically, the scalar was found to be 5.1626.
 static const double solar_potential_divider_scalar = 5.1626;
 
-// ADC gain error
-static const double gain_error = 1.047;
-
-// ADC offset error
-static const double offset_error = -.00273;
-
 // Telemetry ID for battery potential measurements.
 static const uint8_t battery_potential_telemetry_type = 0;
 
@@ -77,29 +83,32 @@ static const unsigned int solar_potential_telemetry_period = 1000;
 // Fixed-point post-decimal-point digits to use in telemetry
 static const unsigned int telemetry_decimal_digits = 3;
 
-// Battery potential input.
-static ArduinoAnalogInput battery_potential(battery_potential_pin,
-                                            battery_potential_reference,
-                                            offset_error,
-                                            gain_error);
+// Battery potential input. The potential is measured across ~1/2 of a
+// high-resistance voltage divider.
+static ArduinoAnalogInput battery_potential_divided(
+    battery_potential_pin,
+    battery_potential_reference);
+static AnalogInputMultiplier battery_potential(
+    battery_potential_divided,
+    battery_potential_divider_scalar);
 
 // Solar current input. The current is measured by applying Ohm's Law across
 // an in-series resistor.
-static ArduinoAnalogInput solar_current_divider_volts(solar_current_pin,
-                                                      solar_current_reference,
-                                                      offset_error,
-                                                      gain_error);
-static AmmeterAnalogInput solar_current(solar_current_divider_volts,
-                                        solar_current_meter_resistance);
+static ArduinoAnalogInput solar_current_divider_volts(
+    solar_current_pin,
+    solar_current_reference);
+static AmmeterAnalogInput solar_current(
+    solar_current_divider_volts,
+    solar_current_meter_resistance);
 
-// Solar potential input. The potential is measured across 1/5 of a
+// Solar potential input. The potential is measured across ~1/5 of a
 // high-resistance voltage divider.
-static ArduinoAnalogInput solar_potential_divided(solar_potential_pin,
-                                                  solar_potential_reference,
-                                                  offset_error,
-                                                  gain_error);
-static AnalogInputMultiplier solar_potential(solar_potential_divided,
-                                             solar_potential_divider_scalar);
+static ArduinoAnalogInput solar_potential_divided(
+    solar_potential_pin,
+    solar_potential_reference);
+static AnalogInputMultiplier solar_potential(
+    solar_potential_divided,
+    solar_potential_divider_scalar);
 
 // Make an array of the 4 available seven-segment displays.
 static DigitalOutputSevenSegmentDisplay<ArduinoCommonAnodeLed> display1(
@@ -129,10 +138,10 @@ static SolarPowerDisplay<4> solar_power_display(
 
 static SolarPowerDisplayTask<4> solar_power_display_task(
     solar_power_display,
-    8000,
-    8000,
-    8000,
-    8000);
+    4000,
+    4000,
+    4000,
+    4000);
 
 // Create a message serializer. The serializer stringifies datagrams for
 // transmission over a stream-like communication link.
@@ -165,7 +174,15 @@ void setup() {
       !solar_power_display.init() || !solar_power_display_task.init()) {
     return;
   }
+  
+  // Set up ADC errors.
+  ArduinoAnalogInput::setOffsetError(ArduinoAnalogInput::k1V1, adc_1v1_offset_error);
+  ArduinoAnalogInput::setGainError(ArduinoAnalogInput::k1V1, adc_1v1_gain_error);
+  ArduinoAnalogInput::setOffsetError(ArduinoAnalogInput::k2V56, adc_2v56_offset_error);
+  ArduinoAnalogInput::setGainError(ArduinoAnalogInput::k2V56, adc_2v56_gain_error);
+  
   Serial.begin(serial_baud);
+  
   initialized = true;
 }
 

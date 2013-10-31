@@ -12,18 +12,26 @@ public:
   enum Reference {
     kDefault,
     k1V1,
-    k2V56
+    k2V56,
+
+    // Do not use.
+    kReferenceCount
   };
 
+  static void setOffsetError(Reference reference, double offset_error) {
+    offset_errors[reference] = offset_error;
+  }
+
+  static void setGainError(Reference reference, double gain_error) {
+    gain_errors[reference] = gain_error;
+  }
+
   ArduinoAnalogInput(unsigned int pin,
-                    Reference reference,
-                    double offset_error,
-                    double gain_error) :
+                    Reference reference) :
       pin(pin),
+      reference(reference),
       arduino_reference(getArduinoReference(reference)),
-      voltage_reference(getVoltageReference(reference)),
-      offset_error(offset_error),
-      gain_error(gain_error) {
+      voltage_reference(getVoltageReference(reference)) {
   }
 
   bool init() {
@@ -48,10 +56,13 @@ public:
 
     // Note that if there was a negative offset error, it is not possible for
     // this value to ever achieve zero.
-    return (raw_voltage - offset_error) / gain_error;
+    return (raw_voltage - offset_errors[reference]) / gain_errors[reference];
   }
 
 private:
+  static double offset_errors[kReferenceCount];
+  static double gain_errors[kReferenceCount];
+
   static int getArduinoReference(Reference reference) {
     switch (reference) {
       case kDefault:
@@ -87,14 +98,9 @@ private:
   }
 
   unsigned int pin;
+  Reference reference;
   int arduino_reference;
   double voltage_reference;
-
-  /// The voltage error in volts.
-  const double offset_error;
-
-  /// The gain error scalar.
-  const double gain_error;
 };
 
 #endif /* ARDUINO_ANALOG_INPUT_H */
